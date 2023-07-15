@@ -53,7 +53,7 @@ public class ChatgptService {
         log.info("body: " + body);
 
         try {
-            final StringEntity entity = new StringEntity(body);
+            final StringEntity entity = new StringEntity(body, "UTF-8");
             log.info("entity: " + entity);
             post.setEntity(entity);
 
