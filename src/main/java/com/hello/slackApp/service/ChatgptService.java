@@ -14,6 +14,11 @@ import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 @Slf4j
 public class ChatgptService {
@@ -27,7 +32,12 @@ public class ChatgptService {
     public String processSearch(String query) {
 
         ChatgptRequest chatgptRequest = new ChatgptRequest();
-        chatgptRequest.setPrompt(query);
+        List<Map> requestMessages = new ArrayList<>();
+        HashMap<String, String> message = new HashMap<>();
+        message.put("role", "user");
+        message.put("content", query);
+        requestMessages.add(message);
+        chatgptRequest.setMessages(requestMessages);
 
 
         String url = OPEN_AI_URL;
@@ -43,7 +53,8 @@ public class ChatgptService {
         log.info("body: " + body);
 
         try {
-            final StringEntity entity = new StringEntity(body);
+            final StringEntity entity = new StringEntity(body, "UTF-8");
+            log.info("entity: " + entity);
             post.setEntity(entity);
 
             RequestConfig requestConfig = RequestConfig.custom()
@@ -60,7 +71,7 @@ public class ChatgptService {
 
                 ChatgptResponse chatGPTResponse = gson.fromJson(responseBody, ChatgptResponse.class);
 
-                return chatGPTResponse.getChoices().get(0).getText();
+                return chatGPTResponse.getChoices().get(0).getMessage().getContent();
             } catch (Exception e) {
                 return "failed";
             }
@@ -68,8 +79,6 @@ public class ChatgptService {
         catch (Exception e) {
             return "failed";
         }
-
-
 
     }
 }
