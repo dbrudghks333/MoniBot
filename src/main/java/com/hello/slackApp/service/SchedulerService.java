@@ -1,9 +1,11 @@
 package com.hello.slackApp.service;
 
+import java.io.UnsupportedEncodingException;
 import com.hello.slackApp.model.AlertSchedulerHashValue;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.hello.slackApp.service.PrometheusService;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +20,9 @@ public class SchedulerService {
     @Autowired
     private SlackAlertService slackAlertService;
 
+    @Autowired
+    private PrometheusService prometheusService;
+
     @Scheduled(fixedRate = 5000) // 5초마다 실행
     public void incrementValuesAndLog() {
         for(String key: map.keySet()) {
@@ -31,22 +36,37 @@ public class SchedulerService {
         int queryValue = Integer.parseInt(hashValue.getQueryValue());
         int count = Integer.parseInt(hashValue.getCount());
         int time = Integer.parseInt(hashValue.getTime());
-
-        if ((flag.equals("up") && queryValue <= TMP_RESULT) || (flag.equals("down") && queryValue >= TMP_RESULT)) {
+        String metricResult = "";
+    
+        try {
+            metricResult = prometheusService.processQuery(key);
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+    
+        double metricResultDouble = 0;
+        try {
+            metricResultDouble = Double.parseDouble(metricResult);
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
+    
+        if ((flag.equals("up") && queryValue <= metricResultDouble) || (flag.equals("down") && queryValue >= metricResultDouble)) {
             count++;
             if (count >= time / TMP_CNT){
-                sendAlert(key, queryValue, flag.equals("up") ? "이상" : "이하");
+                sendAlert(key, queryValue, flag.equals("up") ? "이상" : "이하",metricResultDouble);
             }
         } else {
             count = 0;
         }
+
         hashValue.setCount(Integer.toString(count));
         map.put(key, hashValue);
     }
-
-    private void sendAlert(String key, int queryValue, String condition) {
-        String[] alertQuery = {key, Integer.toString(queryValue), condition, Integer.toString(TMP_RESULT)};
-        slackAlertService.sendSlackNotification(alertQuery);
+    
+    private void sendAlert(String key, int queryValue, String condition, double metricResultValue) {
+        String[] alertQuery = {key, Integer.toString(queryValue), condition, Double.toString(metricResultValue)};
+        slackAlertService.sendSlackNotification(alertQuery);    
     }
 
     // Map에 값 추가

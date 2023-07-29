@@ -1,6 +1,7 @@
 package com.hello.slackApp.config;
 
 import com.hello.slackApp.service.ChatgptService;
+import com.hello.slackApp.service.PrometheusService;
 import com.hello.slackApp.service.SlackAlertService;
 import com.hello.slackApp.service.SchedulerService;
 import com.slack.api.app_backend.slash_commands.payload.SlashCommandPayload;
@@ -29,6 +30,9 @@ public class SlackAppConfig {
     @Autowired
     private SchedulerService schedulerService;
 
+    @Autowired
+    private PrometheusService prometheusService;
+
     private static final String WAIT_MESSAGE = ":robot_face: :speech_balloon: 잠시만 기다려주세요. ChatGPT가 답변을 작성하고 있습니다.";
 
     public SlackAppConfig(Environment env) {
@@ -44,13 +48,15 @@ public class SlackAppConfig {
         app.command("/bot", (req, ctx)->{
             SlashCommandPayload payload = req.getPayload();
             String userId = "<@" + payload.getUserId() + ">";
-            String question = payload.getText();
             String query = payload.getText();
-            ctx.respond(r -> r.responseType("in_channel").text(":question: " + userId + "님의 질문 : " + question));
+            ctx.respond(r -> r.responseType("in_channel").text(":question: " + userId + "님의 질문 : " + query));
             ctx.respond(r -> r.responseType("in_channel").text(WAIT_MESSAGE));
-            String s = chatgptService.processSearch(query);
+            String gpt_resp = chatgptService.processSearch(query);
             log.info(query);
-            ctx.respond(r -> r.responseType("in_channel").text(s));
+
+            String metric_result = prometheusService.processQuery(gpt_resp);
+            ctx.respond(r -> r.responseType("in_channel").text(gpt_resp));
+            ctx.respond(r -> r.responseType("in_channel").text("요청 값은 다음과 같습니다: "+ metric_result));
             return ctx.ack();
         });
 
@@ -69,7 +75,6 @@ public class SlackAppConfig {
 
             return ctx.ack();
         });
-
 
         return app;
     }
